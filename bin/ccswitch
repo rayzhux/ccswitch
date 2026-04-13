@@ -1,0 +1,108 @@
+#!/usr/bin/env zsh
+# ccswitch — Claude Code account switcher for macOS
+# https://github.com/rayzhux/ccswitch
+set -euo pipefail
+
+VERSION="0.1.0"
+SNAP_DIR="$HOME/.ccswitch"
+SERVICE="Claude Code-credentials"
+ACCOUNT="$USER"
+CLAUDE_JSON="$HOME/.claude.json"
+
+mkdir -p "$SNAP_DIR" && chmod 700 "$SNAP_DIR"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+HELPER=$(command -v ccswitch-keychain) \
+  || die "ccswitch-keychain not on PATH — re-run install.sh"
+command -v jq >/dev/null || die "jq required: brew install jq"
+
+exec 9>"$SNAP_DIR/.lock"
+flock -n 9 || die "another ccswitch is running"
+
+guard_claude_stopped() {
+  if pgrep -x claude >/dev/null 2>&1; then
+    die "Claude Code is running — quit it first, then retry"
+  fi
+}
+
+active_email() {
+  [[ -f $CLAUDE_JSON ]] || { echo "(none)"; return; }
+  jq -r '.oauthAccount.emailAddress // "(unknown)"' "$CLAUDE_JSON" 2>/dev/null \
+    || echo "(unknown)"
+}
+
+save() {
+  local name=${1:-}; [[ -n $name ]] || die "usage: ccswitch save <name>"
+  guard_claude_stopped
+  local tok
+  tok=$("$HELPER" get "$SERVICE" "$ACCOUNT") \
+    || die "no active login — run 'claude' and log in first"
+  printf %s "$tok" | "$HELPER" set "ccswitch:$name" "$ACCOUNT"
+  jq '{oauthAccount, userID}' "$CLAUDE_JSON" > "$SNAP_DIR/$name.json.tmp"
+  chmod 600 "$SNAP_DIR/$name.json.tmp"
+  mv "$SNAP_DIR/$name.json.tmp" "$SNAP_DIR/$name.json"
+  unset tok
+  echo "saved: $name  ($(active_email))"
+}
+
+use() {
+  local name=${1:-}; [[ -n $name ]] || die "usage: ccswitch use <name>"
+  guard_claude_stopped
+  [[ -f "$SNAP_DIR/$name.json" ]] || die "unknown profile: $name (try: ccswitch list)"
+  local tok
+  tok=$("$HELPER" get "ccswitch:$name" "$ACCOUNT") \
+    || die "missing keychain entry for $name"
+
+  cp "$CLAUDE_JSON" "$CLAUDE_JSON.bak"
+  jq --slurpfile p "$SNAP_DIR/$name.json" \
+     '.oauthAccount = $p[0].oauthAccount | .userID = $p[0].userID' \
+     "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp"
+  mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+
+  if ! printf %s "$tok" | "$HELPER" set "$SERVICE" "$ACCOUNT"; then
+    mv "$CLAUDE_JSON.bak" "$CLAUDE_JSON"
+    die "keychain write failed — rolled back"
+  fi
+  unset tok
+  echo "→ $name  ($(active_email))"
+}
+
+list() {
+  local any=0
+  for f in "$SNAP_DIR"/*.json(N); do
+    printf "  - %s\n" "${${f:t}:r}"; any=1
+  done
+  [[ $any -eq 0 ]] && echo "  (no profiles — run: ccswitch save <name>)"
+  echo "active: $(active_email)"
+}
+
+remove() {
+  local name=${1:-}; [[ -n $name ]] || die "usage: ccswitch remove <name>"
+  "$HELPER" delete "ccswitch:$name" "$ACCOUNT" || true
+  rm -f "$SNAP_DIR/$name.json"
+  echo "removed: $name"
+}
+
+case ${1:-} in
+  save)    save    "${2:-}" ;;
+  use)     use     "${2:-}" ;;
+  remove)  remove  "${2:-}" ;;
+  list|ls) list ;;
+  current|who) active_email ;;
+  --version|-v) echo "ccswitch $VERSION" ;;
+  ""|--help|-h) cat <<EOF
+ccswitch $VERSION — Claude Code account switcher (macOS)
+
+  ccswitch save <name>     snapshot current login as <name>
+  ccswitch use <name>      switch to profile <name>
+  ccswitch list            show all profiles
+  ccswitch current         show active account email
+  ccswitch remove <name>   delete profile
+  ccswitch --version       print version
+
+Claude Code must be stopped before save/use.
+EOF
+  ;;
+  *) die "unknown command: $1 (try: ccswitch --help)" ;;
+esac
