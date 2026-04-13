@@ -37,10 +37,14 @@ case "get":
 case "set":
   let data = FileHandle.standardInput.readDataToEndOfFile()
   guard !data.isEmpty else { die("empty stdin") }
-  SecItemDelete(base as CFDictionary)
-  var add = base
-  add[kSecValueData as String] = data
-  let s = SecItemAdd(add as CFDictionary, nil)
+  // Try update first (works even when ACL blocks us from deleting)
+  let updateAttrs: [String: Any] = [kSecValueData as String: data]
+  var s = SecItemUpdate(base as CFDictionary, updateAttrs as CFDictionary)
+  if s == errSecItemNotFound {
+    var add = base
+    add[kSecValueData as String] = data
+    s = SecItemAdd(add as CFDictionary, nil)
+  }
   guard s == errSecSuccess else { die("set failed (status \(s))") }
 
 case "delete":

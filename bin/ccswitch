@@ -3,7 +3,7 @@
 # https://github.com/rayzhux/ccswitch
 set -euo pipefail
 
-VERSION="0.1.1"
+VERSION="0.1.2"
 SNAP_DIR="$HOME/.ccswitch"
 SERVICE="Claude Code-credentials"
 ACCOUNT="$USER"
