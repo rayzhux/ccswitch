@@ -3,7 +3,7 @@
 # https://github.com/rayzhux/ccswitch
 set -euo pipefail
 
-VERSION="0.1.0"
+VERSION="0.1.1"
 SNAP_DIR="$HOME/.ccswitch"
 SERVICE="Claude Code-credentials"
 ACCOUNT="$USER"
@@ -17,8 +17,11 @@ HELPER=$(command -v ccswitch-keychain) \
   || die "ccswitch-keychain not on PATH — re-run install.sh"
 command -v jq >/dev/null || die "jq required: brew install jq"
 
-exec 9>"$SNAP_DIR/.lock"
-flock -n 9 || die "another ccswitch is running"
+LOCK_DIR="$SNAP_DIR/.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  die "another ccswitch is running (stale? remove $LOCK_DIR)"
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
 
 guard_claude_stopped() {
   if pgrep -x claude >/dev/null 2>&1; then
