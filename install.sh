@@ -18,7 +18,7 @@ else
   TAG=$(git ls-remote --tags --refs --sort=-v:refname "$REPO_URL" 2>/dev/null \
     | awk -F/ 'NR==1{print $NF}')
   [ -n "$TAG" ] || { echo "could not resolve latest tag"; exit 1; }
-  echo "→ fetching ccswitch $TAG…"
+  echo "-> fetching ccswitch ${TAG}..."
   git clone --depth 1 --branch "$TAG" "$REPO_URL" "$TMP/ccswitch"
   SRC="$TMP/ccswitch"
 fi
