@@ -9,29 +9,28 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 [ "$(uname)" = "Darwin" ] || { echo "ccswitch is macOS-only"; exit 1; }
-command -v swiftc >/dev/null 2>&1 || {
-  echo "need Xcode Command Line Tools: xcode-select --install"; exit 1; }
 command -v jq >/dev/null 2>&1 || {
   echo "need jq: brew install jq"; exit 1; }
 
-if [ -f bin/ccswitch ] && [ -f src/ccswitch-keychain.swift ]; then
+if [ -f bin/ccswitch ]; then
   SRC="$PWD"
 else
-  echo "→ fetching ccswitch…"
-  git clone --depth 1 "$REPO_URL" "$TMP/ccswitch"
+  TAG=$(git ls-remote --tags --refs --sort=-v:refname "$REPO_URL" 2>/dev/null \
+    | awk -F/ 'NR==1{print $NF}')
+  [ -n "$TAG" ] || { echo "could not resolve latest tag"; exit 1; }
+  echo "→ fetching ccswitch $TAG…"
+  git clone --depth 1 --branch "$TAG" "$REPO_URL" "$TMP/ccswitch"
   SRC="$TMP/ccswitch"
 fi
 
 mkdir -p "$BIN"
-
-echo "→ building Keychain helper…"
-swiftc -O "$SRC/src/ccswitch-keychain.swift" -o "$BIN/ccswitch-keychain"
-
-echo "→ installing CLI…"
 install -m 0755 "$SRC/bin/ccswitch" "$BIN/ccswitch"
 
+# Clean up legacy Swift helper from pre-0.2 installs.
+rm -f "$BIN/ccswitch-keychain"
+
 echo ""
-echo "✓ installed to $BIN"
+echo "✓ installed to $BIN/ccswitch"
 
 case ":$PATH:" in
   *":$BIN:"*) ;;

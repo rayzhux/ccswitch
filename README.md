@@ -18,7 +18,7 @@ cd ccswitch
 ./install.sh
 ```
 
-Requires macOS, [`jq`](https://stedolan.github.io/jq/) (`brew install jq`), and Xcode Command Line Tools (`xcode-select --install`).
+Requires macOS and [`jq`](https://stedolan.github.io/jq/) (`brew install jq`).
 
 ## Usage
 
@@ -55,23 +55,22 @@ alias ccl='ccswitch list'
 Claude Code on macOS stores its OAuth token in the Keychain (service `Claude Code-credentials`) and account metadata in `~/.claude.json`. `ccswitch` snapshots both per profile and swaps them atomically:
 
 - OAuth tokens stay in Keychain under `ccswitch:<name>`; never written to disk in plaintext.
-- Tokens are passed to the Keychain helper via **stdin**, never argv, so they're invisible to `ps`.
+- Tokens are piped into the Apple-signed `security` CLI via `security -i`, so they never appear in any process `argv` (invisible to `ps`).
 - `~/.claude.json` is merged (only `oauthAccount` + `userID`), not overwritten — project history and global settings are preserved.
 - Refuses to run while `claude` is running, to avoid racing its writes.
 - Backs up `~/.claude.json` before each swap and rolls back on failure.
-- Uses `flock` to prevent concurrent `ccswitch` invocations.
+- Uses a `mkdir`-based lock to prevent concurrent `ccswitch` invocations.
 
 ## Security notes
 
 - Threat model: a trusted personal Mac, single macOS user account. Not designed for shared/multi-tenant machines.
 - Profiles are device-local (Keychain is not synced across Macs by design). Run setup on each Mac separately.
-- The first time a profile is used, macOS will prompt to allow Keychain access for `ccswitch-keychain` — click **Always Allow**.
-- Uninstall: `./uninstall.sh` (removes binaries; see script output for wiping profile data).
+- The first time a profile is read, macOS will prompt to allow Keychain access for `security` — click **Always Allow**. Because `security` is Apple-signed, this grant persists across ccswitch upgrades.
+- Uninstall: `./uninstall.sh --purge` wipes binaries, snapshots, and per-profile keychain entries. Plain `./uninstall.sh` removes only the binary.
 
 ## Files
 
-- `bin/ccswitch` — the zsh CLI (~100 lines).
-- `src/ccswitch-keychain.swift` — tiny Swift helper using Security.framework; compiled at install time.
+- `bin/ccswitch` — the zsh CLI (~120 lines, pure shell).
 - `install.sh` / `uninstall.sh` — self-contained installer.
 
 ## License
