@@ -41,14 +41,25 @@ ccswitch current                # show active email
 ccswitch list                   # all profiles
 ```
 
-Recommended aliases in `~/.zshrc`:
+Recommended aliases in `~/.zshrc` — one per account, plus two helpers:
 
 ```zsh
+# one alias per profile: cc<letter>='ccswitch use <name> && claude'
 alias ccr='ccswitch use raymond && claude'
 alias cck='ccswitch use karen   && claude'
-alias ccw='ccswitch current'
-alias ccl='ccswitch list'
+alias cc3='ccswitch use mom     && claude'
+alias cc4='ccswitch use dad     && claude'
+
+# helpers
+alias ccw='ccswitch current'    # who am I right now?
+alias ccl='ccswitch list'       # all profiles; active marked with *
 ```
+
+Reload with `source ~/.zshrc` (or open a new terminal). Then `ccr` / `cck` / `cc3` / `cc4` each swap the login and launch `claude` in one keystroke.
+
+**Naming convention.** The profile name (`raymond`, `karen`, `mom`, `dad`) must match what you used with `ccswitch save <name>`. The alias prefix (`cc…`) is arbitrary — pick whatever your muscle memory likes. Some people prefer initials (`ccr`/`cck`/`ccm`/`ccd`); numeric suffixes (`cc1`..`cc4`) stay stable if names change later.
+
+Adding a 5th account later is the same pattern: `ccswitch save <name>` once, add one alias line, `source ~/.zshrc`.
 
 ## How it works
 
