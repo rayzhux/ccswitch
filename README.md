@@ -6,11 +6,13 @@ Useful when you share a machine, hit the 5-hour usage window, or juggle personal
 
 ## Install
 
+Pinned to the latest release (recommended — immutable, no CDN-cache surprises):
+
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rayzhux/ccswitch/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rayzhux/ccswitch/v0.2.1/install.sh | sh
 ```
 
-Or read before running (recommended):
+Or from a local clone (read before running):
 
 ```sh
 git clone https://github.com/rayzhux/ccswitch
